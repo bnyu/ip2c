@@ -2,5 +2,8 @@
 name = "ip2c"
 version = "0.1.0"
 edition = "2021"
+license = "Apache-2.0"
+authors = ["XuYue <xuyue1106@gmail.com>"]
+description = "Get the codes for the representation of names of countries and regions from IP address."
 
 [dependencies]
