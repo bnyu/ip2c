@@ -10,6 +10,24 @@ pub enum Interval<T: Ord> {
     Point(T),
 }
 
+impl<T: Ord> Interval<T> {
+    pub fn is_valid(&self) -> bool {
+        match self {
+            Interval::Point(_) => true,
+            Interval::Range(a, b) => b > a
+        }
+    }
+}
+
+impl<T: Ord> Display for Interval<T> where T: Display {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Interval::Range(x, y) => f.write_fmt(format_args!("[{}, {})", x, y)),
+            Interval::Point(x) => f.write_fmt(format_args!("[{}]", x)),
+        }
+    }
+}
+
 impl<T> PartialOrd for Interval<T> where T: Ord {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
@@ -80,6 +98,14 @@ impl<K: Ord + Copy, V> IntervalTreeMap<K, V> {
         self.map.get_key_value(&key)
     }
 
+    pub fn put_interval(&mut self, key: Interval<K>, value: V) -> Result<(), KeyError> {
+        if !key.is_valid() {
+            Err(KeyError::Invalid)?
+        } else {
+            self._put(key, value)
+        }
+    }
+
     pub fn put(&mut self, left: K, right: K, value: V) -> Result<(), KeyError> {
         let key = if left < right {
             Interval::Range(left, right)
@@ -89,6 +115,10 @@ impl<K: Ord + Copy, V> IntervalTreeMap<K, V> {
             Err(KeyError::Invalid)?
         };
 
+        self._put(key, value)
+    }
+
+    fn _put(&mut self, key: Interval<K>, value: V) -> Result<(), KeyError> {
         match self.map.entry(key) {
             Vacant(e) => e.insert(value),
             Occupied(_) => Err(KeyError::Conflict)?
@@ -98,5 +128,36 @@ impl<K: Ord + Copy, V> IntervalTreeMap<K, V> {
 
     pub fn get_tree(&self) -> &BTreeMap<Interval<K>, V> {
         &self.map
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::itree::IntervalTreeMap;
+    use crate::KeyError;
+
+    #[test]
+    fn put_get() {
+        let mut map = IntervalTreeMap::new();
+        let r = map.put(100, 200, 'A');
+        assert_eq!(r, Ok(()));
+        let r = map.put(200, 300, 'S');
+        assert_eq!(r, Ok(()));
+        let r = map.get(110);
+        assert_eq!(r, Some(&'A'));
+        let r = map.get(200);
+        assert_eq!(r, Some(&'S'));
+        let r = map.get(299);
+        assert_eq!(r, Some(&'S'));
+        let r = map.get(300);
+        assert_eq!(r, None);
+        let r = map.put(450, 330, 'D');
+        assert_eq!(r, Err(KeyError::Invalid));
+        let r = map.put(150, 230, 'F');
+        assert_eq!(r, Err(KeyError::Conflict));
+        let r = map.put(500, 600, 'A');
+        assert_eq!(r, Ok(()));
+        let r = map.get(501);
+        assert_eq!(r, Some(&'A'));
     }
 }

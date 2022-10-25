@@ -1,0 +1,14 @@
+########## THIS IS ONLY AN EXAMPLE DATA, PLEASE DOWNLOAD THE INFO YOURSELF ##########
+#### HERE ARE SOME PUBLIC DOWNLOAD ADDRESS FROM RIR
+# //https://ftp.arin.net/pub/stats/arin/delegated-arin-extended-latest
+# //https://ftp.ripe.net/ripe/stats/delegated-ripencc-extended-latest
+# //https://ftp.apnic.net/stats/apnic/delegated-apnic-extended-latest
+# //https://ftp.lacnic.net/pub/stats/lacnic/delegated-lacnic-extended-latest
+# //https://ftp.afrinic.net/pub/stats/afrinic/delegated-afrinic-extended-latest
+###################################################
+
+|**|ipv6|::|0||intranet
+|**|ipv4|0.0.0.0|16777216||intranet
+|**|ipv4|10.0.0.0|16777216||intranet
+|**|ipv4|127.0.0.1|16777216||intranet
+|**|ipv4|255.255.255.255|1||intranet
