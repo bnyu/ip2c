@@ -1,26 +1,29 @@
 #[cfg(test)]
 mod tests {
-    use crate::itree::{Interval, IntervalTreeMap};
-    use crate::*;
+    use crate::itree::Interval;
+    use crate::ip2c::{IPv4, Ipv4Tree, Ipv6Tree};
+    use crate::rir::country_region_code::{IpCountryRegionCode, Code};
 
     #[test]
     fn parse_eg_data() {
-        let mut map = IP2C::new();
+        let mut map = IpCountryRegionCode::new();
         println!("load data...");
-        let _ = load_from_dir(&mut map, "./data");
+        let _ = map.load_from_dir("./data").expect("dirty data");
         println!("unknown_ipv4_segments:");
         show_unknown_ipv4_segments(&map.ipv4);
         println!("known_ipv6_code:");
         show_known_ipv6_code(&map.ipv6);
+        let r = map.query("127.0.0.1".parse().unwrap());
+        assert_eq!(r.is_some(), true);
         assert_eq!(map.ipv4.len() > 0, true);
         assert_eq!(map.ipv6.len() > 0, true);
     }
 
-    fn show_unknown_ipv4_segments(tree: &IntervalTreeMap<IPv4, Code>) {
+    fn show_unknown_ipv4_segments(tree: &Ipv4Tree<Code>) {
         let mut pre_y = 0;
         let max_y = u32::MAX;
         let mut not_included = Vec::new();
-        for (k, _v) in tree.get_tree() {
+        for (k, _v) in tree.tree() {
             let (x, y) = match k {
                 Interval::Range(a, b) => (a.0, b.0),
                 Interval::Point(a) => (a.0, if a.0 < u32::MAX { a.0 + 1 } else { a.0 }),
@@ -39,8 +42,8 @@ mod tests {
         }
     }
 
-    fn show_known_ipv6_code(tree: &IntervalTreeMap<IPv6, Code>) {
-        for (k, v) in tree.get_tree() {
+    fn show_known_ipv6_code(tree: &Ipv6Tree<Code>) {
+        for (k, v) in tree.tree() {
             println!("{}    {}", k, v)
         }
     }

@@ -2,40 +2,31 @@ use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry::{Vacant, Occupied};
 use std::error::Error;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 
-#[derive(PartialEq, Eq)]
-pub enum Interval<T: Ord> {
+#[derive(PartialEq, Eq, Copy, Clone)]
+pub enum Interval<T: Ord + Copy> {
     Range(T, T),
     Point(T),
 }
 
-impl<T: Ord> Interval<T> {
-    pub fn is_valid(&self) -> bool {
-        match self {
-            Interval::Point(_) => true,
-            Interval::Range(a, b) => b > a
-        }
-    }
-}
-
-impl<T: Ord> Display for Interval<T> where T: Display {
+impl<T: Ord + Copy> Display for Interval<T> where T: Display {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Interval::Range(x, y) => f.write_fmt(format_args!("[{}, {})", x, y)),
-            Interval::Point(x) => f.write_fmt(format_args!("[{}]", x)),
+            Interval::Point(x) => f.write_fmt(format_args!("{{{}}}", x)),
         }
     }
 }
 
-impl<T> PartialOrd for Interval<T> where T: Ord {
+impl<T> PartialOrd for Interval<T> where T: Ord + Copy {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
 // Not Transitive Equal; Equal only means: intersection is not empty set
-impl<T> Ord for Interval<T> where T: Ord {
+impl<T> Ord for Interval<T> where T: Ord + Copy {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
             (Interval::Point(x), Interval::Point(y)) => x.cmp(y),
@@ -56,24 +47,30 @@ impl<T> Ord for Interval<T> where T: Ord {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum KeyError {
-    Invalid,
-    Conflict,
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum IntervalError<K: Ord + Copy> {
+    Invalid([Interval<K>; 2]),
+    Conflict([Interval<K>; 2]),
 }
 
-impl Display for KeyError {
+impl<K: Ord + Copy + Display> Display for IntervalError<K> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            KeyError::Invalid => f.write_str("right key must not less than left"),
-            KeyError::Conflict => f.write_str("key interval has conflict with other"),
+            IntervalError::Invalid(kk) => f.write_fmt(format_args!("key should be left close right open interval, {} ---> {}", &kk[0], &kk[1])),
+            IntervalError::Conflict(kk) => f.write_fmt(format_args!("key interval range is conflicted with other, {} <--> {}", &kk[0], &kk[1])),
         }
     }
 }
 
-impl Error for KeyError {}
+impl<K: Ord + Copy + Display> Debug for IntervalError<K> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(self, f)
+    }
+}
 
-pub struct IntervalTreeMap<K: Ord, V> {
+impl<K: Ord + Copy + Display> Error for IntervalError<K> {}
+
+pub struct IntervalTreeMap<K: Ord + Copy, V> {
     map: BTreeMap<Interval<K>, V>,
 }
 
@@ -88,7 +85,7 @@ impl<K: Ord + Copy, V> IntervalTreeMap<K, V> {
         self.map.len()
     }
 
-    pub fn get(&self, point: K) -> Option<&V> {
+    pub fn query(&self, point: K) -> Option<&V> {
         let key = Interval::Point(point);
         self.map.get(&key)
     }
@@ -98,66 +95,102 @@ impl<K: Ord + Copy, V> IntervalTreeMap<K, V> {
         self.map.get_key_value(&key)
     }
 
-    pub fn put_interval(&mut self, key: Interval<K>, value: V) -> Result<(), KeyError> {
-        if !key.is_valid() {
-            Err(KeyError::Invalid)?
-        } else {
-            self._put(key, value)
-        }
+    pub fn insert_interval(&mut self, key: Interval<K>, value: V) -> Result<(), IntervalError<K>> {
+        match key {
+            Interval::Range(a, b) if a >= b => Err(IntervalError::Invalid([key, if a == b { Interval::Point(a) } else { Interval::Range(b, a) }]))?,
+            _ => {}
+        };
+        self._insert(key, value)
     }
 
-    pub fn put(&mut self, left: K, right: K, value: V) -> Result<(), KeyError> {
+    pub fn insert(&mut self, left: K, right: K, value: V) -> Result<(), IntervalError<K>> {
         let key = if left < right {
             Interval::Range(left, right)
         } else if left == right {
             Interval::Point(left)
         } else {
-            Err(KeyError::Invalid)?
+            Err(IntervalError::Invalid([Interval::Range(left, right), Interval::Range(right, left)]))?
         };
 
-        self._put(key, value)
+        self._insert(key, value)
     }
 
-    fn _put(&mut self, key: Interval<K>, value: V) -> Result<(), KeyError> {
+    fn _insert(&mut self, key: Interval<K>, value: V) -> Result<(), IntervalError<K>> {
         match self.map.entry(key) {
             Vacant(e) => e.insert(value),
-            Occupied(_) => Err(KeyError::Conflict)?
+            Occupied(e) => {
+                let k1 = e.key();
+                Err(IntervalError::Conflict([key, *k1]))?
+            }
         };
         Ok(())
     }
 
-    pub fn get_tree(&self) -> &BTreeMap<Interval<K>, V> {
+    pub fn remove_interval(&mut self, key: &Interval<K>) -> Option<V> {
+        let (k, _) = self.map.get_key_value(key)?;
+        if k == key {
+            return self._remove(key);
+        }
+        None
+    }
+
+    fn _remove(&mut self, key: &Interval<K>) -> Option<V> {
+        self.map.remove(&key)
+    }
+
+    pub fn tree(&self) -> &BTreeMap<Interval<K>, V> {
         &self.map
     }
 }
 
+
 #[cfg(test)]
 mod tests {
-    use crate::itree::IntervalTreeMap;
-    use crate::KeyError;
+    use crate::Interval;
+    use super::IntervalTreeMap;
 
     #[test]
     fn put_get() {
         let mut map = IntervalTreeMap::new();
-        let r = map.put(100, 200, 'A');
+        let r = map.insert(100, 200, 'A');
         assert_eq!(r, Ok(()));
-        let r = map.put(200, 300, 'S');
+        let r = map.insert(200, 300, 'S');
         assert_eq!(r, Ok(()));
-        let r = map.get(110);
+        let r = map.query(110);
         assert_eq!(r, Some(&'A'));
-        let r = map.get(200);
+        let r = map.query(200);
         assert_eq!(r, Some(&'S'));
-        let r = map.get(299);
+        let r = map.query(299);
         assert_eq!(r, Some(&'S'));
-        let r = map.get(300);
+        let r = map.query(300);
         assert_eq!(r, None);
-        let r = map.put(450, 330, 'D');
-        assert_eq!(r, Err(KeyError::Invalid));
-        let r = map.put(150, 230, 'F');
-        assert_eq!(r, Err(KeyError::Conflict));
-        let r = map.put(500, 600, 'A');
+        let r = map.insert(450, 330, 'D');
+        assert_ne!(r, Ok(()));
+        let r = map.insert(150, 230, 'F');
+        assert_ne!(r, Ok(()));
+        let r = map.insert(500, 600, 'A');
         assert_eq!(r, Ok(()));
-        let r = map.get(501);
+        let r = map.query(501);
         assert_eq!(r, Some(&'A'));
+    }
+
+    #[test]
+    fn remove() {
+        let mut map = IntervalTreeMap::new();
+        let _ = map.insert_interval(Interval::Range(10, 20), true);
+        let _ = map.insert_interval(Interval::Range(30, 80), true);
+        let _ = map.insert_interval(Interval::Point(100), true);
+        let r = map.remove_interval(&Interval::Range(15, 50));
+        assert_eq!(r, None);
+        assert_eq!(map.query(15), Some(&true));
+        let r = map.remove_interval(&Interval::Range(10, 20));
+        assert_eq!(r, Some(true));
+        assert_eq!(map.query(15), None);
+        let r = map.remove_interval(&Interval::Range(100, 101));
+        assert_eq!(r, None);
+        assert_eq!(map.query(100), Some(&true));
+        let r = map.remove_interval(&Interval::Point(100));
+        assert_eq!(r, Some(true));
+        assert_eq!(map.query(100), None);
     }
 }
