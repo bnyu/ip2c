@@ -3,15 +3,20 @@ use std::str::FromStr;
 use std::net::{Ipv4Addr, Ipv6Addr, AddrParseError};
 use crate::itree::IntervalTreeMap;
 
+/// similar with [Ipv4Addr]
+/// use `.into()` and `.from()` to convert between them
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct IPv4(pub(crate) u32);
 
+/// similar with [Ipv6Addr]
+/// use `.into()` and `.from()` to convert between them
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct IPv6(pub(crate) u128);
 
 pub type Ipv4Tree<T> = IntervalTreeMap<IPv4, T>;
 pub type Ipv6Tree<T> = IntervalTreeMap<IPv6, T>;
 
+/// both [Ipv4Tree] and [Ipv6Tree]
 pub struct IpTree<T> {
     pub ipv4: Ipv4Tree<T>,
     pub ipv6: Ipv6Tree<T>,

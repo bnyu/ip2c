@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod tests {
     use crate::itree::Interval;
-    use crate::ip2c::{IPv4, Ipv4Tree, Ipv6Tree};
-    use crate::rir::country_region_code::{IpCountryRegionCode, Code};
+    use crate::ip2c::*;
+    use crate::rir::{IpCodeMap, CountryRegionCode};
 
     #[test]
     fn parse_eg_data() {
-        let mut map = IpCountryRegionCode::new();
+        let mut map = IpCodeMap::new();
         println!("load data...");
         let _ = map.load_from_dir("./data").expect("dirty data");
         println!("unknown_ipv4_segments:");
@@ -19,7 +19,7 @@ mod tests {
         assert_eq!(map.ipv6.len() > 0, true);
     }
 
-    fn show_unknown_ipv4_segments(tree: &Ipv4Tree<Code>) {
+    fn show_unknown_ipv4_segments(tree: &Ipv4Tree<CountryRegionCode>) {
         let mut pre_y = 0;
         let max_y = u32::MAX;
         let mut not_included = Vec::new();
@@ -42,7 +42,7 @@ mod tests {
         }
     }
 
-    fn show_known_ipv6_code(tree: &Ipv6Tree<Code>) {
+    fn show_known_ipv6_code(tree: &Ipv6Tree<CountryRegionCode>) {
         for (k, v) in tree.tree() {
             println!("{}    {}", k, v)
         }

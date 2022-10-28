@@ -1,14 +1,11 @@
 use std::error::Error;
-
 use std::io;
 use std::io::BufRead;
 use std::fs;
-
 use std::path::Path;
 
 use crate::Interval;
-use crate::ip2c::{IPv4, IPv6};
-use crate::rir::country_region_code::{IpCountryRegionCode, Code};
+use crate::rir::*;
 
 pub enum IpRange {
     Ipv4(Interval<IPv4>),
@@ -26,7 +23,7 @@ pub enum IpState {
 pub struct Entity {
     pub range: IpRange,
     pub state: IpState,
-    pub code: Code,
+    pub code: CountryRegionCode,
 }
 
 
@@ -45,7 +42,7 @@ pub fn parse_line(line: &String) -> Option<Entity> {
         }
     }
 
-    let code = Code::new(sl[1])?;
+    let code = CountryRegionCode::new(sl[1])?;
 
     let state = match sl[6] {
         "allocated" => IpState::Allocated,
@@ -81,7 +78,7 @@ fn parse_ipv6_range(ip_str: &str, mask: &str) -> Result<Interval<IPv6>, Box<dyn 
     Ok(if mask == 0 { Interval::Point(ip) } else { Interval::Range(ip, ip.0.wrapping_add(1 << mask).into()) })
 }
 
-impl IpCountryRegionCode {
+impl IpCodeMap {
     pub fn add_entity(&mut self, entity: Entity) -> Result<(), Box<dyn Error>> {
         match entity.range {
             IpRange::Ipv4(k) => self.ipv4.insert_interval(k, entity.code)?,
@@ -98,9 +95,11 @@ impl IpCountryRegionCode {
                 Ok(f) => {
                     if !f.file_type()?.is_dir() {
                         if let Some(filename) = f.file_name().to_str() {
-                            if filename.ends_with(".txt") {
-                                self.load_from_file(f.path())?;
-                            }
+                            // if !filename.ends_with(".txt") {
+                            //     continue
+                            // }
+                            println!("loading {}", filename);
+                            self.load_from_file(f.path())?;
                         }
                     }
                 }

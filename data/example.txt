@@ -7,8 +7,8 @@
 # //https://ftp.afrinic.net/pub/stats/afrinic/delegated-afrinic-extended-latest
 ###################################################
 
-|--|ipv6|::|0||intranet
-|--|ipv4|0.0.0.0|16777216||intranet
-|--|ipv4|10.0.0.0|16777216||intranet
-|--|ipv4|127.0.0.0|16777216||intranet
-|--|ipv4|255.255.255.255|1||intranet
+|--|ipv6|::|0||testing
+|--|ipv4|0.0.0.0|16777216||testing
+|--|ipv4|10.0.0.0|16777216||testing
+|--|ipv4|127.0.0.0|16777216||testing
+|--|ipv4|255.255.255.255|1||testing
