@@ -26,7 +26,7 @@ mod tests {
         for (k, _v) in tree.tree() {
             let (x, y) = match k {
                 Interval::Range(a, b) => (a.0, b.0),
-                Interval::Point(a) => (a.0, if a.0 < u32::MAX { a.0 + 1 } else { a.0 }),
+                Interval::Scope(a, b) => (a.0, if b.0 < u32::MAX { b.0 + 1 } else { b.0 }),
             };
             assert_eq!(pre_y <= x, true);
             if x > pre_y { not_included.push(Interval::Range(IPv4(pre_y), IPv4(x))) }
@@ -34,7 +34,7 @@ mod tests {
         }
         if max_y > pre_y {
             not_included.push(Interval::Range(IPv4(pre_y), IPv4(max_y)));
-            not_included.push(Interval::Point(IPv4(max_y)));
+            not_included.push(Interval::Scope(IPv4(max_y), IPv4(max_y)));
         }
 
         for item in not_included {

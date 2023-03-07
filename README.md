@@ -1,7 +1,33 @@
-# ip2c
+# IP2C
 
 Get the codes for the representation of names of countries and regions from IP address.
 
-## [Doc](https://docs.rs/ip2c/latest/ip2c/)
+You can directly use `rir::IpCodeMap` build IP to Codes for the representation of names of countries and regions.
 
-### [rir-data](./data/example.txt)
+```rust
+use ip2c::rir::IpCodeMap;
+
+let mut map = IpCodeMap::new();
+map.load_from_dir("./data").expect("load rir txt info failed");
+let code = map.query("127.0.0.1".parse().unwrap());
+println!("{}", code.unwrap());
+ ```
+
+> this library do not provide rir information files, you need download yourself.  
+> see [example.txt](./data/example.txt) about download url and official txt format.
+
+Also, you can use `IpTree` to build IP city location map, eg:
+
+```rust
+use ip2c::IpTree;
+
+let mut map = IpTree::new();
+map.ipv4.insert_interval("101.204.128.0-101.204.130.0".parse().unwrap(), ("sichuan", "chengdu")).unwrap();
+map.ipv4.insert_interval("208.0.0.0/22".parse().unwrap(), ("beijing", "beijing")).unwrap();
+map.ipv4.insert_interval("208.1.3.6".parse().unwrap(), ("beijing", "beijing")).unwrap();
+assert_eq!(map.ipv4.query("101.204.129.1".parse().unwrap()), Some(&("sichuan", "chengdu")));
+assert_eq!(map.ipv4.query("208.0.3.47".parse().unwrap()), Some(&("beijing", "beijing")));
+assert_eq!(map.ipv4.query("208.11.0.9".parse().unwrap()), None);
+ ```
+
+## [doc](https://docs.rs/ip2c/latest/ip2c/)

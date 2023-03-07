@@ -69,13 +69,13 @@ pub fn parse_line(line: &String) -> Option<Entity> {
 fn parse_ipv4_range(ip_str: &str, add: &str) -> Result<Interval<IPv4>, Box<dyn Error>> {
     let ip: IPv4 = ip_str.parse()?;
     let add: u32 = add.parse()?;
-    Ok(if add == 1 { Interval::Point(ip) } else { Interval::Range(ip, ip.0.wrapping_add(add).into()) })
+    Ok(Interval::Scope(ip, ip.0.wrapping_add(add - 1).into()))
 }
 
 fn parse_ipv6_range(ip_str: &str, mask: &str) -> Result<Interval<IPv6>, Box<dyn Error>> {
     let ip: IPv6 = ip_str.parse()?;
     let mask: u8 = mask.parse()?;
-    Ok(if mask == 0 { Interval::Point(ip) } else { Interval::Range(ip, ip.0.wrapping_add(1 << mask).into()) })
+    Ok(Interval::Scope(ip, ip.0.wrapping_add((1 << mask) - 1).into()))
 }
 
 impl IpCodeMap {
