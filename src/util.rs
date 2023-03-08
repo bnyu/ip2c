@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::str::FromStr;
-use crate::{Interval, IPv4, IPv6, Ipv4Interval, Ipv6Interval};
+use crate::{Interval, IPv4, IPv6};
 
 #[derive(Debug)]
 pub struct ParseIpv4ScopeError;
@@ -14,7 +14,7 @@ impl Display for ParseIpv4ScopeError {
 
 impl Error for ParseIpv4ScopeError {}
 
-impl FromStr for Ipv4Interval {
+impl FromStr for Interval<IPv4> {
     type Err = ParseIpv4ScopeError;
 
     /// eg: parse 100.0.0.1-100 to Scope(100.0.0.1, 100.0.0.100)
@@ -24,31 +24,31 @@ impl FromStr for Ipv4Interval {
     ///
     /// ```
     /// use std::str::FromStr;
-    /// use ip2c::{Ipv4Interval, IPv4};
+    /// use ip2c::{Interval, IPv4};
     ///
-    /// let v = Ipv4Interval::from_str("100.0.0.1-100").unwrap();
+    /// let v = Interval::<IPv4>::from_str("100.0.0.1-100").unwrap();
     /// let ip = IPv4::from_str("100.0.0.1").unwrap();
     /// let ip1 = IPv4::from_str("100.0.0.100").unwrap();
     /// println!("{}", v.to_string());
-    /// assert_eq!(v, Ipv4Interval::Scope(ip, ip1));
+    /// assert_eq!(v, Interval(ip, ip1));
     ///
-    /// let v = Ipv4Interval::from_str("100.0.0.0-101.0.0.0").unwrap();
+    /// let v = Interval::<IPv4>::from_str("100.0.0.0-101.0.0.0").unwrap();
     /// let ip = IPv4::from_str("100.0.0.0").unwrap();
     /// let ip1 = IPv4::from_str("101.0.0.0").unwrap();
     /// println!("{}", v.to_string());
-    /// assert_eq!(v, Ipv4Interval::Scope(ip, ip1));
+    /// assert_eq!(v, Interval(ip, ip1));
     ///
-    /// let v = Ipv4Interval::from_str("100.0.0.1/20").unwrap();
+    /// let v = Interval::<IPv4>::from_str("100.0.0.1/20").unwrap();
     /// let ip = IPv4::from_str("100.0.0.0").unwrap();
     /// let ip1 = IPv4::from_str("100.0.15.255").unwrap();
     /// println!("{}", v.to_string());
-    /// assert_eq!(v, Ipv4Interval::Scope(ip, ip1));
+    /// assert_eq!(v, Interval(ip, ip1));
     ///
-    /// let v = Ipv4Interval::from_str("100.0.0.200").unwrap();
+    /// let v = Interval::<IPv4>::from_str("100.0.0.200").unwrap();
     /// let ip = IPv4::from_str("100.0.0.200").unwrap();
     /// let ip1 = IPv4::from_str("100.0.0.200").unwrap();
     /// println!("{}", v.to_string());
-    /// assert_eq!(v, Ipv4Interval::Scope(ip, ip1));
+    /// assert_eq!(v, Interval(ip, ip1));
     /// ```
     ///
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -65,13 +65,13 @@ impl FromStr for Ipv4Interval {
                 let Ok(ip1) = IPv4::from_str(b) else {
                     return Err(ParseIpv4ScopeError);
                 };
-                Ok(Interval::Scope(ip, ip1))
+                Ok(Interval(ip, ip1))
             } else {
                 let Ok(n) = b.parse::<u8>() else {
                     return Err(ParseIpv4ScopeError);
                 };
                 let ip1 = IPv4((ip.0 & (!255)) + (n as u32));
-                Ok(Interval::Scope(ip, ip1))
+                Ok(Interval(ip, ip1))
             }
         } else if let Some(i) = s.find('/') {
             let (a, b) = s.split_at(i);
@@ -84,18 +84,18 @@ impl FromStr for Ipv4Interval {
             };
             if n == 0 {
                 if ip.0 == 0 {
-                    Ok(Interval::Scope(IPv4(0), IPv4(u32::MAX)))
+                    Ok(Interval(IPv4(0), IPv4(u32::MAX)))
                 } else {
                     Err(ParseIpv4ScopeError)
                 }
             } else if n == 32 {
-                Ok(Interval::Scope(ip, ip))
+                Ok(Interval(ip, ip))
             } else if n < 32 {
                 let add: u32 = (1 << (32 - n)) - 1;
                 let mask: u32 = !add;
                 let ip0 = IPv4(ip.0 & mask);
                 let ip1 = IPv4(ip0.0 + add);
-                Ok(Interval::Scope(ip0, ip1))
+                Ok(Interval(ip0, ip1))
             } else {
                 Err(ParseIpv4ScopeError)
             }
@@ -103,7 +103,7 @@ impl FromStr for Ipv4Interval {
             let Ok(ip) = IPv4::from_str(s) else {
                 return Err(ParseIpv4ScopeError);
             };
-            Ok(Interval::Scope(ip, ip))
+            Ok(Interval(ip, ip))
         };
     }
 }
@@ -120,19 +120,19 @@ impl Display for ParseIpv6ScopeError {
 
 impl Error for ParseIpv6ScopeError {}
 
-impl FromStr for Ipv6Interval {
+impl FromStr for Interval<IPv6> {
     type Err = ParseIpv6ScopeError;
 
     /// eg: parse from ipv6 or ipv6 network segment
     /// ```
     /// use std::str::FromStr;
-    /// use ip2c::{Ipv6Interval, IPv6};
+    /// use ip2c::{Interval, IPv6};
     ///
-    /// let v = Ipv6Interval::from_str("::1/120").unwrap();
+    /// let v = Interval::<IPv6>::from_str("::1/120").unwrap();
     /// let ip = IPv6::from_str("::").unwrap();
     /// let ip1 = IPv6::from_str("::0.0.0.255").unwrap();
     /// println!("{}", v.to_string());
-    /// assert_eq!(v, Ipv6Interval::Scope(ip, ip1));
+    /// assert_eq!(v, Interval(ip, ip1));
     /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.len() > 48 || !s.contains(':') {
@@ -149,18 +149,18 @@ impl FromStr for Ipv6Interval {
             };
             if n == 0 {
                 if ip.0 == 0 {
-                    Ok(Interval::Scope(IPv6(0), IPv6(u128::MAX)))
+                    Ok(Interval(IPv6(0), IPv6(u128::MAX)))
                 } else {
                     Err(ParseIpv6ScopeError)
                 }
             } else if n == 128 {
-                Ok(Interval::Scope(ip, ip))
+                Ok(Interval(ip, ip))
             } else if n < 128 {
                 let add: u128 = (1 << (128 - n)) - 1;
                 let mask: u128 = !add;
                 let ip0 = IPv6(ip.0 & mask);
                 let ip1 = IPv6(ip0.0 + add);
-                Ok(Interval::Scope(ip0, ip1))
+                Ok(Interval(ip0, ip1))
             } else {
                 Err(ParseIpv6ScopeError)
             }
@@ -168,7 +168,7 @@ impl FromStr for Ipv6Interval {
             let Ok(ip) = IPv6::from_str(s) else {
                 return Err(ParseIpv6ScopeError);
             };
-            Ok(Interval::Scope(ip, ip))
+            Ok(Interval(ip, ip))
         };
     }
 }

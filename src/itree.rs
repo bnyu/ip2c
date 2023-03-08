@@ -3,39 +3,31 @@ use std::collections::BTreeMap;
 use std::collections::btree_map::Entry::{Vacant, Occupied};
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
-use std::ops::{Range};
 
-/// [Interval::Range] is a left close right open range
-/// `Interval::Range(0,4)` contains `{0,1,2,3}`, can be `from(0..4)`
-///
-/// [Interval::Scope] is a closed range.
-/// `Interval::Scope(0,4)` contains `{0,1,2,3,4}`
-/// The one element scope, eg:{4} can be `from(4)`
+/// [Interval] is a closed range.
+/// `Scope(0,4)` contains `[0,4]`, can be `from((0,4))`
+/// The one element interval, eg:`{0}` also can be `from(0)`
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
-pub enum Interval<T: Ord + Copy> {
-    Range(T, T),
-    Scope(T, T),
-    // Point(T),
-}
+pub struct Interval<T: Ord + Copy>(pub T, pub T);
 
 impl<T: Copy + Ord> From<T> for Interval<T> {
     fn from(t: T) -> Self {
-        Interval::<T>::Scope(t, t)
+        Interval(t, t)
     }
 }
 
-impl<T: Copy + Ord> From<Range<T>> for Interval<T> {
-    fn from(r: Range<T>) -> Self {
-        Interval::<T>::Range(r.start, r.end)
+impl<T: Copy + Ord> From<(T, T)> for Interval<T> {
+    fn from(t: (T, T)) -> Self {
+        Interval(t.0, t.1)
     }
 }
 
 impl<T: Ord + Copy> Display for Interval<T> where T: Display {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Interval::Scope(x, y) if x == y => f.write_fmt(format_args!("{{{}}}", x)),
-            Interval::Scope(x, y) => f.write_fmt(format_args!("[{}, {}]", x, y)),
-            Interval::Range(x, y) => f.write_fmt(format_args!("[{}, {})", x, y)),
+        if self.0 == self.1 {
+            f.write_fmt(format_args!("{{{}}}", self.0))
+        } else {
+            f.write_fmt(format_args!("[{}, {}]", self.0, self.1))
         }
     }
 }
@@ -48,29 +40,10 @@ impl<T> PartialOrd for Interval<T> where T: Ord + Copy {
 
 /// `==` Eq is Transitive Equal. But `Ord::cmp` return `Ordering::Equal` only means that intersection is non empty set
 impl<T> Ord for Interval<T> where T: Ord + Copy {
-    fn cmp(&self, other: &Self) -> Ordering {
-        match (self, other) {
-            (Interval::Scope(x0, x1), Interval::Scope(y0, y1)) => {
-                assert_eq!(x0 <= x1, true);
-                assert_eq!(y0 <= y1, true);
-                if x1 < y0 { Ordering::Less } else if x0 > y1 { Ordering::Greater } else { Ordering::Equal }
-            }
-            (Interval::Range(x0, x1), Interval::Range(y0, y1)) => {
-                assert_eq!(x0 < x1, true);
-                assert_eq!(y0 < y1, true);
-                if x1 <= y0 { Ordering::Less } else if x0 >= y1 { Ordering::Greater } else { Ordering::Equal }
-            }
-            (Interval::Range(r0, r1), Interval::Scope(s0, s1)) => {
-                assert_eq!(r0 < r1, true);
-                assert_eq!(s0 <= s1, true);
-                if r1 <= s0 { Ordering::Less } else if r0 > s1 { Ordering::Greater } else { Ordering::Equal }
-            }
-            (Interval::Scope(s0, s1), Interval::Range(r0, r1)) => {
-                assert_eq!(s0 <= s1, true);
-                assert_eq!(r0 < r1, true);
-                if r1 <= s0 { Ordering::Less } else if r0 > s1 { Ordering::Greater } else { Ordering::Equal }.reverse()
-            }
-        }
+    fn cmp(&self, that: &Self) -> Ordering {
+        debug_assert_eq!(self.0 <= self.1, true);
+        debug_assert_eq!(that.0 <= that.1, true);
+        if self.1 < that.0 { Ordering::Less } else if self.0 > that.1 { Ordering::Greater } else { Ordering::Equal }
     }
 }
 
@@ -120,7 +93,7 @@ impl<K: Ord + Copy, V> IntervalTreeMap<K, V> {
     /// use ip2c::IntervalTreeMap;
     ///
     /// let mut map = IntervalTreeMap::new();
-    /// let _ = map.insert_range(0, 4, "a");
+    /// let _ = map.insert_scope(0, 4, "a");
     /// assert_eq!(map.len(), 1);
     /// ```
     pub fn len(&self) -> usize {
@@ -143,7 +116,7 @@ impl<K: Ord + Copy, V> IntervalTreeMap<K, V> {
     /// assert_eq!(map.query(5), None);
     /// ```
     pub fn query(&self, point: K) -> Option<&V> {
-        let key = Interval::Scope(point, point);
+        let key = Interval(point, point);
         self.map.get(&key)
     }
 
@@ -156,17 +129,17 @@ impl<K: Ord + Copy, V> IntervalTreeMap<K, V> {
     /// use ip2c::{Interval, IntervalTreeMap};
     ///
     /// let mut map = IntervalTreeMap::new();
-    /// let _ = map.insert_range(0, 4, "a");
-    /// assert_eq!(map.get_key_value(3), Some((&Interval::Range(0, 4), &"a")));
+    /// let _ = map.insert_scope(0, 4, "a");
+    /// assert_eq!(map.get_key_value(3), Some((&Interval(0, 4), &"a")));
     /// ```
     pub fn get_key_value(&self, point: K) -> Option<(&Interval<K>, &V)> {
-        let key = Interval::Scope(point, point);
+        let key = Interval(point, point);
         self.map.get_key_value(&key)
     }
 
     /// Inserts an interval-value pair into the map.
     ///
-    /// If the interval is invalid(eg. `Interval::Range(5, 3)`), [IntervalError::Invalid]` is returned
+    /// If the interval is invalid(eg. `Interval(5, 3)`), [IntervalError::Invalid]` is returned
     /// If the new interval has conflict with others that already in the map, [IntervalError::Conflict] is returned
     ///
     /// # Examples
@@ -176,70 +149,24 @@ impl<K: Ord + Copy, V> IntervalTreeMap<K, V> {
     /// use ip2c::{Interval, IntervalTreeMap};
     ///
     /// let mut map = IntervalTreeMap::new();
-    /// let _ = map.insert_interval(Interval::Range(0, 4), "a");
-    /// assert_eq!(map.get_key_value(3), Some((&Interval::Range(0, 4), &"a")));
+    /// let _ = map.insert(Interval(0, 4), "a");
+    /// assert_eq!(map.get_key_value(3), Some((&Interval(0, 4), &"a")));
     /// ```
-    pub fn insert_interval(&mut self, key: Interval<K>, value: V) -> Result<(), IntervalError<K>> {
-        match key {
-            Interval::Scope(a, b) if a > b => Err(IntervalError::Invalid([key, Interval::Scope(b, a)]))?,
-            Interval::Range(a, b) if a > b => Err(IntervalError::Invalid([key, Interval::Range(b, a)]))?,
-            Interval::Range(a, b) if a == b => Err(IntervalError::Invalid([key, Interval::Scope(a, b)]))?,
-            _ => {}
-        };
+    pub fn insert(&mut self, key: Interval<K>, value: V) -> Result<(), IntervalError<K>> {
+        if key.0 > key.1 {
+            Err(IntervalError::Invalid([key, Interval(key.1, key.0)]))?
+        }
         self._insert(key, value)
-    }
-
-
-    /// insert a left close right open interval key of value
-    pub fn insert_range(&mut self, left: K, right: K, value: V) -> Result<(), IntervalError<K>> {
-        self.insert_interval(Interval::Range(left, right), value)
     }
 
     /// insert a left close right close interval key of value
     pub fn insert_scope(&mut self, left: K, right: K, value: V) -> Result<(), IntervalError<K>> {
-        self.insert_interval(Interval::Scope(left, right), value)
+        self.insert(Interval(left, right), value)
     }
 
     /// insert a single point interval key of value
     pub fn insert_point(&mut self, point: K, value: V) -> Result<(), IntervalError<K>> {
-        self.insert_interval(Interval::Scope(point, point), value)
-    }
-
-    /// Inserts an interval-value pair into the map.
-    ///
-    /// similar with [IntervalTreeMap::insert_interval]
-    /// If `left == right`, `insert_interval(Interval::Scope(left, right), value)`
-    /// If `left < right`, `insert_interval(Interval::Range(left, right), value)`
-    /// If `left > right`, return `IntervalError::Invalid`
-    ///
-    /// # Examples
-    ///
-    /// Basic usage:
-    /// ```
-    /// use ip2c::IntervalTreeMap;
-    ///
-    /// let mut map = IntervalTreeMap::new();
-    /// let _ = map.insert_range(0, 4, "a");
-    /// assert_eq!(map.query(0), Some(&"a"));
-    /// assert_eq!(map.query(3), Some(&"a"));
-    /// assert_eq!(map.query(4), None);
-    /// let _ = map.insert_point(4, "a");
-    /// assert_eq!(map.query(4), Some(&"a"));
-    ///
-    #[deprecated(
-    since = "0.1.4",
-    note = "Please use the insert_range, insert_scope or insert_point function instead"
-    )]
-    pub fn insert(&mut self, left: K, right: K, value: V) -> Result<(), IntervalError<K>> {
-        let key = if left < right {
-            Interval::Range(left, right)
-        } else if left == right {
-            Interval::Scope(left, right)
-        } else {
-            Err(IntervalError::Invalid([Interval::Range(left, right), Interval::Range(right, left)]))?
-        };
-
-        self._insert(key, value)
+        self.insert(Interval(point, point), value)
     }
 
     fn _insert(&mut self, key: Interval<K>, value: V) -> Result<(), IntervalError<K>> {
@@ -253,9 +180,8 @@ impl<K: Ord + Copy, V> IntervalTreeMap<K, V> {
         Ok(())
     }
 
-    /// Removes an interval from the map, returning the value of the interval if the same interval was previously in the map.
+    /// Removes an interval from the map, returning the value of the interval if the exactly same interval was previously in the map.
     ///
-    /// Note that `Interval::Range(1, 4)` is not `==` `Interval::Scope(1, 3)`, so maybe you need [IntervalTreeMap::get_key_value] first
     /// # Examples
     ///
     /// Basic usage:
@@ -263,14 +189,15 @@ impl<K: Ord + Copy, V> IntervalTreeMap<K, V> {
     /// use ip2c::{Interval, IntervalTreeMap};
     ///
     /// let mut map = IntervalTreeMap::new();
-    /// let _ = map.insert_interval(Interval::Range(0, 4), "a");
-    /// let _ = map.insert_interval(Interval::Range(6, 7), "b");
-    /// assert_eq!(map.remove_interval(&Interval::Range(0, 4)), Some("a"));
-    /// assert_eq!(map.remove_interval(&Interval::Range(2, 9)), None);
-    /// assert_eq!(map.remove_interval(&Interval::Scope(6, 6)), None);
-    /// assert_eq!(map.remove_interval(&Interval::Range(6, 7)), Some("b"));
+    /// let _ = map.insert(Interval(0, 4), "a");
+    /// let _ = map.insert(Interval(6, 7), "b");
+    /// assert_eq!(map.remove(&Interval(2, 9)), None);
+    /// assert_eq!(map.remove(&Interval(6, 6)), None);
+    /// assert_eq!(map.query(6), Some(&"b"));
+    /// assert_eq!(map.remove(&Interval(6, 7)), Some("b"));
+    /// assert_eq!(map.query(6), None);
     /// ```
-    pub fn remove_interval(&mut self, key: &Interval<K>) -> Option<V> {
+    pub fn remove(&mut self, key: &Interval<K>) -> Option<V> {
         let (k, _) = self.map.get_key_value(key)?;
         if k == key {
             return self._remove(key);
@@ -282,7 +209,7 @@ impl<K: Ord + Copy, V> IntervalTreeMap<K, V> {
         self.map.remove(&key)
     }
 
-    /// Removes the reference of the inner map, so you can iterate on it.
+    /// Return the reference of the inner map, so you can iterate on it.
     pub fn tree(&self) -> &BTreeMap<Interval<K>, V> {
         &self.map
     }
@@ -297,16 +224,18 @@ mod tests {
     #[test]
     fn put_get() {
         let mut map = IntervalTreeMap::new();
-        let r = map.insert_range(100, 200, 'A');
+        let r = map.insert_scope(100, 200, 'A');
         assert_eq!(r, Ok(()));
-        let r = map.query(110);
+        let r = map.query(200);
         assert_eq!(r, Some(&'A'));
-        let r = map.query(200);
+        let r = map.query(201);
         assert_eq!(r, None);
-        let r = map.insert_scope(200, 300, 'S');
+        let r = map.insert_scope(200, 300, 'B');
+        assert_ne!(r, Ok(()));
+        let r = map.insert_scope(201, 300, 'S');
         assert_eq!(r, Ok(()));
         let r = map.query(200);
-        assert_eq!(r, Some(&'S'));
+        assert_eq!(r, Some(&'A'));
         let r = map.query(300);
         assert_eq!(r, Some(&'S'));
         let r = map.insert_scope(450, 330, 'D');
@@ -322,19 +251,19 @@ mod tests {
     #[test]
     fn remove() {
         let mut map = IntervalTreeMap::new();
-        let _ = map.insert_interval(Interval::Range(10, 20), true);
-        let _ = map.insert_interval(Interval::Range(30, 80), true);
-        let _ = map.insert_interval(Interval::Scope(100, 100), true);
-        let r = map.remove_interval(&Interval::Range(15, 50));
+        let _ = map.insert(Interval(10, 20), true);
+        let _ = map.insert(Interval(30, 80), true);
+        let _ = map.insert(Interval(100, 100), true);
+        let r = map.remove(&Interval(15, 50));
         assert_eq!(r, None);
         assert_eq!(map.query(15), Some(&true));
-        let r = map.remove_interval(&Interval::Range(10, 20));
+        let r = map.remove(&Interval(10, 20));
         assert_eq!(r, Some(true));
         assert_eq!(map.query(15), None);
-        let r = map.remove_interval(&Interval::Range(100, 101));
+        let r = map.remove(&Interval(100, 101));
         assert_eq!(r, None);
         assert_eq!(map.query(100), Some(&true));
-        let r = map.remove_interval(&Interval::Scope(100, 100));
+        let r = map.remove(&Interval(100, 100));
         assert_eq!(r, Some(true));
         assert_eq!(map.query(100), None);
     }

@@ -69,20 +69,20 @@ pub fn parse_line(line: &String) -> Option<Entity> {
 fn parse_ipv4_range(ip_str: &str, add: &str) -> Result<Interval<IPv4>, Box<dyn Error>> {
     let ip: IPv4 = ip_str.parse()?;
     let add: u32 = add.parse()?;
-    Ok(Interval::Scope(ip, ip.0.wrapping_add(add - 1).into()))
+    Ok(Interval(ip, ip.0.wrapping_add(add - 1).into()))
 }
 
 fn parse_ipv6_range(ip_str: &str, mask: &str) -> Result<Interval<IPv6>, Box<dyn Error>> {
     let ip: IPv6 = ip_str.parse()?;
     let mask: u8 = mask.parse()?;
-    Ok(Interval::Scope(ip, ip.0.wrapping_add((1 << mask) - 1).into()))
+    Ok(Interval(ip, ip.0.wrapping_add((1 << mask) - 1).into()))
 }
 
 impl IpCodeMap {
     pub fn add_entity(&mut self, entity: Entity) -> Result<(), Box<dyn Error>> {
         match entity.range {
-            IpRange::Ipv4(k) => self.ipv4.insert_interval(k, entity.code)?,
-            IpRange::Ipv6(k) => self.ipv6.insert_interval(k, entity.code)?,
+            IpRange::Ipv4(k) => self.ipv4.insert(k, entity.code)?,
+            IpRange::Ipv6(k) => self.ipv6.insert(k, entity.code)?,
         }
         Ok(())
     }

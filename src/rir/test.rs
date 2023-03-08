@@ -20,21 +20,30 @@ mod tests {
     }
 
     fn show_unknown_ipv4_segments(tree: &Ipv4Tree<CountryRegionCode>) {
+        let mut has_pre = false;
         let mut pre_y = 0;
-        let max_y = u32::MAX;
         let mut not_included = Vec::new();
         for (k, _v) in tree.tree() {
-            let (x, y) = match k {
-                Interval::Range(a, b) => (a.0, b.0),
-                Interval::Scope(a, b) => (a.0, if b.0 < u32::MAX { b.0 + 1 } else { b.0 }),
-            };
-            assert_eq!(pre_y <= x, true);
-            if x > pre_y { not_included.push(Interval::Range(IPv4(pre_y), IPv4(x))) }
-            pre_y = y;
+            let (x, y) = (k.0.0, k.1.0);
+            assert_eq!(!has_pre || pre_y < x, true);
+            if has_pre {
+                if pre_y < x - 1 {
+                    not_included.push(Interval(IPv4(pre_y + 1), IPv4(x - 1)))
+                }
+            } else {
+                has_pre = true;
+                if x > 0 {
+                    not_included.push(Interval(IPv4(0), IPv4(x - 1)))
+                }
+            }
+            pre_y = y
         }
-        if max_y > pre_y {
-            not_included.push(Interval::Range(IPv4(pre_y), IPv4(max_y)));
-            not_included.push(Interval::Scope(IPv4(max_y), IPv4(max_y)));
+        if pre_y < u32::MAX {
+            if has_pre {
+                not_included.push(Interval(IPv4(pre_y + 1), IPv4(u32::MAX)))
+            } else {
+                not_included.push(Interval(IPv4(0), IPv4(u32::MAX)))
+            }
         }
 
         for item in not_included {
