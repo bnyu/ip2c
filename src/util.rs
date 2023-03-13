@@ -65,12 +65,18 @@ impl FromStr for Interval<IPv4> {
                 let Ok(ip1) = IPv4::from_str(b) else {
                     return Err(ParseIpv4ScopeError);
                 };
+                if ip1.0 < ip.0 {
+                    return Err(ParseIpv4ScopeError);
+                }
                 Ok(Interval(ip, ip1))
             } else {
                 let Ok(n) = b.parse::<u8>() else {
                     return Err(ParseIpv4ScopeError);
                 };
                 let ip1 = IPv4((ip.0 & !255) + (n as u32));
+                if ip1.0 < ip.0 {
+                    return Err(ParseIpv4ScopeError);
+                }
                 Ok(Interval(ip, ip1))
             }
         } else if let Some(i) = s.find('/') {
@@ -91,9 +97,9 @@ impl FromStr for Interval<IPv4> {
             } else if n == 32 {
                 Ok(Interval(ip, ip))
             } else if n < 32 {
-                let mask: u32 = (1 << (32 - n)) - 1;
-                let ip0 = IPv4(ip.0 & !mask);
-                let ip1 = IPv4(ip.0 | mask);
+                let mask: u32 = !((1 << (32 - n)) - 1);
+                let ip0 = IPv4(ip.0 & mask);
+                let ip1 = IPv4(ip.0 | !mask);
                 Ok(Interval(ip0, ip1))
             } else {
                 Err(ParseIpv4ScopeError)
@@ -155,10 +161,9 @@ impl FromStr for Interval<IPv6> {
             } else if n == 128 {
                 Ok(Interval(ip, ip))
             } else if n < 128 {
-                let add: u128 = (1 << (128 - n)) - 1;
-                let mask: u128 = !add;
+                let mask: u128 = !((1 << (128 - n)) - 1);
                 let ip0 = IPv6(ip.0 & mask);
-                let ip1 = IPv6(ip0.0 + add);
+                let ip1 = IPv6(ip.0 | !mask);
                 Ok(Interval(ip0, ip1))
             } else {
                 Err(ParseIpv6ScopeError)
