@@ -18,12 +18,14 @@
 //! use ip2c::IpTree;
 //!
 //! let mut map = IpTree::new();
-//! map.ipv4.insert("101.204.128.0-101.204.130.0".parse().unwrap(), ("sichuan", "chengdu")).unwrap();
-//! map.ipv4.insert("208.0.0.0/22".parse().unwrap(), ("beijing", "beijing")).unwrap();
-//! map.ipv4.insert("208.1.3.6".parse().unwrap(), ("beijing", "beijing")).unwrap();
-//! assert_eq!(map.ipv4.query("101.204.129.1".parse().unwrap()), Some(&("sichuan", "chengdu")));
-//! assert_eq!(map.ipv4.query("208.0.3.47".parse().unwrap()), Some(&("beijing", "beijing")));
-//! assert_eq!(map.ipv4.query("208.11.0.9".parse().unwrap()), None);
+//! map.ipv4.insert("101.204.128.0-101.204.130.0".parse().unwrap(), ("Sichuan", "Chengdu")).unwrap();
+//! map.ipv4.insert("43.128.148.100-200".parse().unwrap(), ("South Korea", "Seoul")).unwrap();
+//! map.ipv4.insert("124.156.239.210".parse().unwrap(), ("Japan", "Tokyo")).unwrap();
+//! map.ipv4.insert("123.117.21.0/24".parse().unwrap(), ("Beijing", "Beijing")).unwrap();
+//! map.ipv4.insert("123.117.253.1/20".parse().unwrap(), ("Beijing", "Beijing")).unwrap();
+//! assert_eq!(map.ipv4.query("101.204.129.1".parse().unwrap()), Some(&("Sichuan", "Chengdu")));
+//! assert_eq!(map.ipv4.query("123.117.21.10".parse().unwrap()), Some(&("Beijing", "Beijing")));
+//! assert_eq!(map.ipv4.query("208.123.10.95".parse().unwrap()), None);
 //! ```
 
 pub mod itree;

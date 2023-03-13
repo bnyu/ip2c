@@ -70,7 +70,7 @@ impl FromStr for Interval<IPv4> {
                 let Ok(n) = b.parse::<u8>() else {
                     return Err(ParseIpv4ScopeError);
                 };
-                let ip1 = IPv4((ip.0 & (!255)) + (n as u32));
+                let ip1 = IPv4((ip.0 & !255) + (n as u32));
                 Ok(Interval(ip, ip1))
             }
         } else if let Some(i) = s.find('/') {
@@ -91,10 +91,9 @@ impl FromStr for Interval<IPv4> {
             } else if n == 32 {
                 Ok(Interval(ip, ip))
             } else if n < 32 {
-                let add: u32 = (1 << (32 - n)) - 1;
-                let mask: u32 = !add;
-                let ip0 = IPv4(ip.0 & mask);
-                let ip1 = IPv4(ip0.0 + add);
+                let mask: u32 = (1 << (32 - n)) - 1;
+                let ip0 = IPv4(ip.0 & !mask);
+                let ip1 = IPv4(ip.0 | mask);
                 Ok(Interval(ip0, ip1))
             } else {
                 Err(ParseIpv4ScopeError)
